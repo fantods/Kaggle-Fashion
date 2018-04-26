@@ -1,4 +1,4 @@
-Kaggle - Furniture Identification
+Kaggle - Fashion Identification
 
 - Different saturations
 - Levels of Occulusion (objects overlapping)
