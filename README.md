@@ -10,9 +10,9 @@ Kaggle - Fashion Identification
 
 ```
 data/
-train.json
-test.json
-validation.json
+    train.json
+    test.json
+    validation.json
     train/
     test/
     validation
