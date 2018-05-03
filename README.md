@@ -15,5 +15,5 @@ data/
     validation.json
     train/
     test/
-    validation
+    validation/
 ```
