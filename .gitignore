@@ -4,5 +4,7 @@
 /bin
 /lib
 /man
+/etc
+/share
 pyvenv.cfg
 pip-selfcheck.json
