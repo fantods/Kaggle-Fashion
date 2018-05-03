@@ -1,0 +1,7 @@
+urllib3
+pillow
+tqdm
+numpy
+scikit-learn
+matplotlib
+pandas
