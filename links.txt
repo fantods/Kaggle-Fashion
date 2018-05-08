@@ -1,1 +1,3 @@
 https://towardsdatascience.com/multi-label-image-classification-with-inception-net-cbb2ee538e30
+
+https://github.com/iblucher/brick_squad
