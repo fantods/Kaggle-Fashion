@@ -1,6 +1,7 @@
 .DS_Store
 .vscode/
 /data
+/input
 /bin
 /lib
 /man
