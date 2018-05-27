@@ -10,3 +10,5 @@
 pyvenv.cfg
 pip-selfcheck.json
 .ipynb_checkpoints/
+kaggle_creds.json
+
