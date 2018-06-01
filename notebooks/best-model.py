@@ -11,10 +11,15 @@ from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential
 from keras.layers import Activation, Dense, Dropout, Flatten, Convolution2D, GlobalAveragePooling2D, GlobalMaxPooling2D, MaxPooling2D
 
+import tensorflow as tf
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+sess = tf.Session(config = config)
+    
 NUM_CLASSES = 228
 IMAGE_SIZE = 256
 
-DATA_DIR = "../data_resize/"
+DATA_DIR = "../data/"
 
 with open(DATA_DIR + "train.json") as train, open(DATA_DIR + "test.json") as test, open(DATA_DIR + "validation.json") as validation:
     train_json = json.load(train)
@@ -58,17 +63,6 @@ class BatchSequence(Sequence):
                 image = Image.fromarray(output).convert('RGB')
             images[i, ...] = image
         return images, np.array(batch_y)    
-    
-    # def path_to_image(self, path):
-    #     try:
-    #         image = np.array(Image.open(path))
-    #     except Exception as e:
-    #         print(e)
-    #         output = [1]*(IMAGE_SIZE*IMAGE_SIZE*3)
-    #         output = np.array(output).reshape(IMAGE_SIZE,IMAGE_SIZE,3).astype('uint8')
-    #         image = Image.fromarray(output).convert('RGB')
-    #     return image
-        # return resize(np.array(Image.open(path)), (IMAGE_SIZE, IMAGE_SIZE))
 
 model = Sequential()
 model.add(Convolution2D(32, kernel_size=(3, 3),padding='same',input_shape=(IMAGE_SIZE, IMAGE_SIZE, 3)))
@@ -99,7 +93,7 @@ model.compile(loss='binary_crossentropy', optimizer=sgd, metrics=['accuracy'])
 # train_labels = train_labels[:10000]
 
 EPOCHS = 5
-BATCH = 256
+BATCH = 50
 STEPS = len(train_paths) // BATCH
 
 train_gen = BatchSequence(train_paths, train_labels, BATCH)
