@@ -1,30 +1,26 @@
 import json
+import math
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from PIL import Image
-from skimage.transform import resize
-
 from keras.utils.data_utils import Sequence
-from keras.callbacks import ModelCheckpoint, LearningRateScheduler, TensorBoard, EarlyStopping
+from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras.models import Sequential, Model
-from keras.layers import Activation, Dense, Dropout, Flatten, Convolution2D, GlobalAveragePooling2D, GlobalMaxPooling2D, MaxPooling2D
+from keras.layers import Activation, Dense, Dropout, Flatten, Convolution2D
 from keras import applications
 from keras import optimizers
 
-import tensorflow as tf
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
-sess = tf.Session(config = config)
+# import tensorflow as tf
+# config = tf.ConfigProto()
+# config.gpu_options.allow_growth = True
+# sess = tf.Session(config = config)
     
 NUM_CLASSES = 228
-IMAGE_SIZE = 256
+IMAGE_SIZE = 75
 
 DATA_DIR = "../data/"
 
-with open(DATA_DIR + "train.json") as train, open(DATA_DIR + "test.json") as test, open(DATA_DIR + "validation.json") as validation:
+with open(DATA_DIR + "train.json") as train, open(DATA_DIR + "validation.json") as validation:
     train_json = json.load(train)
-    test_json = json.load(test)
     validation_json = json.load(validation)
     
 def generate_paths_and_labels(json_obj, folder):
@@ -71,74 +67,50 @@ class BatchSequence(Sequence):
             images[i, ...] = image
         return images, np.array(batch_y)  
 
-conv_base = applications.VGG19(weights = "imagenet", include_top=False, input_shape = (IMAGE_SIZE, IMAGE_SIZE, 3))
-for layer in conv_base.layers[:5]:
+# conv_base = applications.VGG19(weights = "imagenet", include_top=False, input_shape = (IMAGE_SIZE, IMAGE_SIZE, 3))
+conv_base = applications.Xception(weights = "imagenet", include_top=False, input_shape = (IMAGE_SIZE, IMAGE_SIZE, 3))
+
+for layer in conv_base.layers[:3]:
     layer.trainable = False
-# x = model.output
-# x = Flatten()(x)
-# x = Dense(1024, activation="relu")(x)
-# x = Dropout(0.5)(x)
-# x = Dense(1024, activation="relu")(x)
-# predictions = Dense(NUM_CLASSES, activation="softmax")(x)
-# model_final = Model(input = model.input, output = predictions)
+
 model = Sequential()
 model.add(conv_base)
 model.add(Flatten())
 model.add(Dense(1024, activation='relu'))
-model.add(Dropout(0.5))
+model.add(Dropout(0.4))
 model.add(Dense(1024, activation='relu'))
 model.add(Dense(NUM_CLASSES, activation='softmax'))
 model.compile(
     loss = "categorical_crossentropy", 
     optimizer = optimizers.SGD(lr=0.0001, momentum=0.9), 
+    # optimizer = optimizers.SGD(lr=0.0, momentum=0.9, decay=0.0, nesterov=False),
     metrics=["accuracy"]
 )
 
-# model = Sequential()
-# model.add(Convolution2D(32, kernel_size=(3, 3),padding='same',input_shape=(IMAGE_SIZE, IMAGE_SIZE, 3)))
-# model.add(Activation('relu'))
-# model.add(Convolution2D(32, (3, 3)))
-# model.add(Activation('relu'))
-# model.add(MaxPooling2D(pool_size=(2, 2)))
-# model.add(Dropout(0.25))
-
-# model.add(Convolution2D(64,(3, 3), padding='same'))
-# model.add(Activation('relu'))
-# model.add(Convolution2D(64, (3, 3)))
-# model.add(Activation('relu'))
-# model.add(MaxPooling2D(pool_size=(2, 2)))
-# model.add(Dropout(0.25))
-
-# model.add(Flatten())
-# model.add(Dense(512))
-# model.add(Activation('relu'))
-# model.add(Dropout(0.5))
-# model.add(Dense(NUM_CLASSES, activation='softmax'))
-# model.add(Dense(NUM_CLASSES, activation='sigmoid'))
-# sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-# model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
-# model.compile(loss='binary_crossentropy', optimizer=sgd, metrics=['accuracy'])
-# print(model.summary())
-
-# train_paths = train_paths[:250000]
-# train_labels = train_labels[:250000]
-
 EPOCHS = 25 
-BATCH = 16
+BATCH = 16 
 STEPS = len(train_paths) // BATCH
 
-train_gen = BatchSequence(train_paths, train_labels, BATCH)
-val_gen = BatchSequence(validation_paths, validation_labels, BATCH)
+train_gen = BatchSequence(train_paths, train_labels, BATCH, resize = True)
+val_gen = BatchSequence(validation_paths, validation_labels, BATCH, resize = True)
+
+def step_decay(epoch):
+	initial_lrate = 0.1
+	drop = 0.5
+	epochs_drop = 10.0
+	lrate = initial_lrate * math.pow(drop, math.floor((1+epoch)/epochs_drop))
+	return lrate
+
+lrate = LearningRateScheduler(step_decay)
 
 filepath="weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-early = EarlyStopping(monitor='val_acc', min_delta=0, patience=10, verbose=1, mode='auto')
 
 history = model.fit_generator(
     generator = train_gen,
     validation_data = val_gen,
     epochs = EPOCHS,
     steps_per_epoch = STEPS,
-    callbacks = [checkpoint, early],
+    callbacks = [checkpoint, lrate],
     workers = 5
 )
