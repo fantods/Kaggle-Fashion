@@ -5,18 +5,12 @@ from PIL import Image
 from keras.utils.data_utils import Sequence
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras.models import Sequential, Model
-from keras.layers import Activation, Dense, Dropout, Flatten, Convolution2D
-from keras import applications
-from keras import optimizers
-
-# import tensorflow as tf
-# config = tf.ConfigProto()
-# config.gpu_options.allow_growth = True
-# sess = tf.Session(config = config)
+from keras.layers import Dense, Dropout, Flatten
+from keras.applications import VGG19
+from keras.optimizers import Adam
     
 NUM_CLASSES = 228
-IMAGE_SIZE = 75
-
+IMAGE_SIZE = 128
 DATA_DIR = "../data/"
 
 with open(DATA_DIR + "train.json") as train, open(DATA_DIR + "validation.json") as validation:
@@ -67,41 +61,38 @@ class BatchSequence(Sequence):
             images[i, ...] = image
         return images, np.array(batch_y)  
 
-# conv_base = applications.VGG19(weights = "imagenet", include_top=False, input_shape = (IMAGE_SIZE, IMAGE_SIZE, 3))
-conv_base = applications.Xception(weights = "imagenet", include_top=False, input_shape = (IMAGE_SIZE, IMAGE_SIZE, 3))
+conv_base = VGG19(weights="imagenet", include_top=False, input_shape=(IMAGE_SIZE, IMAGE_SIZE, 3))
 
-for layer in conv_base.layers[:3]:
+for layer in conv_base.layers[:5]:
     layer.trainable = False
 
 model = Sequential()
 model.add(conv_base)
 model.add(Flatten())
 model.add(Dense(1024, activation='relu'))
-model.add(Dropout(0.4))
+model.add(Dropout(0.5))
 model.add(Dense(1024, activation='relu'))
 model.add(Dense(NUM_CLASSES, activation='softmax'))
 model.compile(
     loss = "categorical_crossentropy", 
-    optimizer = optimizers.SGD(lr=0.0001, momentum=0.9), 
-    # optimizer = optimizers.SGD(lr=0.0, momentum=0.9, decay=0.0, nesterov=False),
+    optimizer = Adam(lr=0.001),
+    # optimizer = optimizers.SGD(lr=0.001, momentum=0.9, decay=0.0, nesterov=False), 
     metrics=["accuracy"]
 )
 
-EPOCHS = 25 
-BATCH = 16 
+EPOCHS = 15 
+BATCH = 26
 STEPS = len(train_paths) // BATCH
 
 train_gen = BatchSequence(train_paths, train_labels, BATCH, resize = True)
 val_gen = BatchSequence(validation_paths, validation_labels, BATCH, resize = True)
 
-def step_decay(epoch):
-	initial_lrate = 0.1
-	drop = 0.5
-	epochs_drop = 10.0
-	lrate = initial_lrate * math.pow(drop, math.floor((1+epoch)/epochs_drop))
-	return lrate
+def step_decay_schedule(initial_lr=1e-3, decay_factor=0.75, step_size=10):
+    def schedule(epoch):
+        return initial_lr * (decay_factor ** np.floor(epoch/step_size))
+    return LearningRateScheduler(schedule)
 
-lrate = LearningRateScheduler(step_decay)
+lrate = step_decay_schedule(initial_lr=0.001, decay_factor=0.75, step_size=2)
 
 filepath="weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
@@ -112,5 +103,5 @@ history = model.fit_generator(
     epochs = EPOCHS,
     steps_per_epoch = STEPS,
     callbacks = [checkpoint, lrate],
-    workers = 5
+    workers = 3
 )
