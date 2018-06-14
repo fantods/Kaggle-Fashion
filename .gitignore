@@ -2,6 +2,7 @@
 .vscode/
 /data
 /input
+/include
 /bin
 /lib
 /man
